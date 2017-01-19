@@ -2,6 +2,7 @@ package me.khrystal.widget;
 
 import android.annotation.TargetApi;
 import android.content.Context;
+import android.content.res.TypedArray;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
@@ -10,7 +11,6 @@ import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.os.Build;
-import android.os.Handler;
 import android.support.annotation.ColorInt;
 import android.util.AttributeSet;
 import android.util.Log;
@@ -27,10 +27,9 @@ import android.view.View;
 public class VerticalTextView extends View {
 
     private static final String TAG = VerticalTextView.class.getSimpleName();
-    private static final int DEFUALT_TEXT_HEIGHT = 500;
+    private static final int DEFAULT_TEXT_HEIGHT = 500;
 
 
-    public static final int LAYOUT_CHANGED = 1;
     private Paint mPaint;
     private int mTextPosX, mTextPosY, mTextWidth, mTextHeight, mFontHeight;
     private float mTextSize = 24;
@@ -39,10 +38,9 @@ public class VerticalTextView extends View {
     private int mColumnWidth;
     private int oldWidth;
     private String mText;
-    private Handler mHandler;
     private Matrix mMatrix;
     /** default draw start from right to left */
-    private Paint.Align textStartAlign = Paint.Align.RIGHT;
+    private Paint.Align textStartAlign = Paint.Align.LEFT;
     /** background drawable */
     BitmapDrawable mBackgroundDrawable = (BitmapDrawable) getBackground();
 
@@ -67,16 +65,21 @@ public class VerticalTextView extends View {
     }
 
     private void initView(Context context, AttributeSet attrs) {
+        TypedArray ta = context.obtainStyledAttributes(attrs, R.styleable.VerticalTextView);
+        mTextSize = ta.getDimension(R.styleable.VerticalTextView_textSize, 14f);
+        //mText = ta.getString(R.styleable.VerticalTextView_text);
+
         mMatrix = new Matrix();
         mPaint = new Paint();
         mPaint.setTextAlign(Paint.Align.CENTER);
         mPaint.setAntiAlias(true);
         mPaint.setColor(Color.BLACK);
-        try {
-            mTextSize = Float.parseFloat(attrs.getAttributeValue(null, "textSize"));
-        } catch (Exception e) {
-            Log.e(TAG, "attrs.getAttributeValue of textSize error!");
-        }
+//        try {
+//            mTextSize = Float.parseFloat(attrs.getAttributeValue(null, "textSize"));
+//            mText = attrs.getAttributeValue(null, "text");
+//        } catch (Exception e) {
+//            Log.e(TAG, "attrs.getAttributeValue of textSize error!");
+//        }
     }
 
     public final void setText(String text) {
@@ -121,10 +124,6 @@ public class VerticalTextView extends View {
         return mTextWidth;
     }
 
-    public void setHandler(Handler handler) {
-        mHandler = handler;
-    }
-
     /**
      * 计算文字的列数和总宽度
      */
@@ -164,8 +163,8 @@ public class VerticalTextView extends View {
             }
         }
 
-        mRealLine++; // 额外增加一行
-        mTextWidth = mColumnWidth * mRealLine; // 计算文字总宽度
+
+        mTextWidth = mColumnWidth * (mRealLine + 3); // 计算文字总宽度
         measure(mTextWidth, getHeight());
         // relayout
         layout(getLeft(), getTop(), getLeft() + mTextWidth, getBottom());
@@ -180,16 +179,13 @@ public class VerticalTextView extends View {
         setMeasuredDimension(mTextWidth, measuredHeight);
         if (oldWidth != getWidth()) {
             oldWidth = getWidth();
-            if (mHandler != null) {
-                mHandler.sendEmptyMessage(LAYOUT_CHANGED);
-            }
         }
     }
 
     private int measureHeight(int measureSpec) {
         int specMode = MeasureSpec.getMode(measureSpec);
         int specSize = MeasureSpec.getSize(measureSpec);
-        int result = DEFUALT_TEXT_HEIGHT;
+        int result = DEFAULT_TEXT_HEIGHT;
         if (specMode == MeasureSpec.AT_MOST) {
             result = specSize;
         } else if (specMode == MeasureSpec.EXACTLY) {
@@ -214,6 +210,33 @@ public class VerticalTextView extends View {
     }
 
     private void draw(Canvas canvas, String text) {
-
+        char ch;
+        // init pos y
+        mTextPosY = 0;
+        mTextPosX = textStartAlign == Paint.Align.LEFT ? mColumnWidth : mTextWidth - mColumnWidth;
+        for (int i = 0; i < mTextLength; i++) {
+            ch = text.charAt(i);
+            if (ch == '\n') {
+                if (textStartAlign == Paint.Align.LEFT) {
+                    mTextPosX += mColumnWidth;
+                } else {
+                    mTextPosX -= mColumnWidth;
+                }
+                mTextPosY = 0;
+            } else {
+                mTextPosY += mFontHeight;
+                if (mTextPosY > this.mTextHeight) {
+                    if (textStartAlign == Paint.Align.LEFT) {
+                        mTextPosX += mColumnWidth;
+                    } else {
+                        mTextPosX -= mColumnWidth;
+                    }
+                    i--;
+                    mTextPosY = 0;
+                } else {
+                    canvas.drawText(String.valueOf(ch), mTextPosX, mTextPosY, mPaint);
+                }
+            }
+        }
     }
 }
